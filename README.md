@@ -40,30 +40,28 @@ Consider the following call to Create an authentication profile for an
 AWS EC2 virtual machine.
 
 ```julia
-        try 
+try 
 
-            iam(aws, Action = "CreateInstanceProfile",
-                     InstanceProfileName = name)
+    iam(aws, Action = "CreateInstanceProfile", InstanceProfileName = name)
 
-        catch e
-            if !(typeof(e) == AWSException && e.code == "EntityAlreadyExists")
-                rethrow(e)
-            end
-        end
+catch e
+    if !(typeof(e) == AWSException && e.code == "EntityAlreadyExists")
+        rethrow(e)
+    end
+end
 ```
 
 `@protected try` allows this to be simplified to:
 
 
 ```julia
-        @protected try 
+@protected try 
 
-            iam(aws, Action = "CreateInstanceProfile",
-                     InstanceProfileName = name)
+    iam(aws, Action = "CreateInstanceProfile", InstanceProfileName = name)
 
-        catch e
-            @ignore if e.code == "EntityAlreadyExists" end
-        end
+catch e
+    @ignore if e.code == "EntityAlreadyExists" end
+end
 ```
 
 Note that the `@ignore if` statement does not check `typeof(e)` before
