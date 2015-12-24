@@ -126,7 +126,7 @@ begin
 
             return s3(aws,"GET",bucket,path)
 
-        catch e # none, line 6:
+        catch e
 
             try
                 if e.code in ["NoSuchBucket","NoSuchKey"]
