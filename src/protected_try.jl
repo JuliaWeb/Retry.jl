@@ -1,7 +1,7 @@
 #==============================================================================#
-# trap.jl
+# prtected_try.jl
 #
-# "@protected try" and @trap exception handling
+# "@protected try" and @ignore exception handling
 #
 # Copyright Sam O'Connor 2014 - All rights reserved
 #==============================================================================#
@@ -23,50 +23,48 @@
 #    
 #    @protected try
 #
-#        return s3_get(url)
+#       s3(aws, "PUT", bucket)
 #
 #    catch e
-#        @ignore if e.code in {"NoSuchKey", "AccessDenied"}
-#            return nothing
-#        end
+#       @ignore if e.code == "BucketAlreadyOwnedByYou" end
 #    end
+#
+# becomes...
+#
+#    try
+#
+#        s3(aws, "PUT", bucket)
+#
+#    catch e
+#        try
+#            if e.code == "BucketAlreadyOwnedByYou"
+#                e = nothing
+#            end
+#        end
+#        e == nothing || rethrow(e)
+#    end
+# 
 #
 #-------------------------------------------------------------------------------
 
 
 macro protected(try_expr::Expr)
 
-    @assert try_expr.head == :try "" *
-            """@protected expects "try/catch" expression as argument."""
-
-    @assert try_expr.args[3].head == :block &&
-            isa(try_expr.args[2], Symbol) "" *
-            """@protected try expects "catch" block with exception variable."""
-
     # Extract exception variable and catch block from "try" expression...
-    (try_block, exception, catch_block) = try_expr.args
+    (try_block, exception, catch_block) = check_try_catch(try_expr, true)
 
-    # Look for "@ignore if..." expressions in catch block...
     for (i, expr) in enumerate(catch_block.args)
 
-        if (isa(expr, Expr)
+        # Look for "@ignore if..." expressions in catch block...
+        if (typeof(expr) == Expr
         &&  expr.head == :macrocall
         &&  expr.args[1] == Symbol("@ignore"))
 
-            # Check for "if" after "@ignore"...
-            @assert length(expr.args) == 2 &&
-                    isa(expr.args[2], Expr) &&
-                    expr.args[2].head == :if "" *
-                    """@ignore expects "if" expression as argument."""
-
-            if_expr = expr.args[2]
-
-            @assert length(if_expr.args) == 2 &&
-                    if_expr.args[2].head == :block "" *
-                    """"else" not allowed in @ignore expression."""
+            if_expr = check_macro_if(expr)
+            (condition, action) = if_expr.args
 
             # Clear exception variable at end of "@ignore if..." block...
-            push!(if_expr.args[2].args, :($exception = nothing))
+            push!(action.args, :($exception = nothing))
             
             # Replace "@ignore if...", with "try if..."...
             catch_block.args[i] = :(try $if_expr end)
@@ -76,7 +74,7 @@ macro protected(try_expr::Expr)
     # Check rethrow flag at end of catch block...
     push!(catch_block.args,  :($exception == nothing || rethrow($exception)))
 
-    return try_expr
+    return esc(try_expr)
 end
 
 

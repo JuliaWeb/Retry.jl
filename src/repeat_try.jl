@@ -1,5 +1,5 @@
 #==============================================================================#
-# retry.jl
+# repeat_try.jl
 #
 # Copyright Sam O'Connor 2014 - All rights reserved
 #==============================================================================#
@@ -20,96 +20,188 @@
 #
 # @delay_retry if... adds exponentially increasing delay with random jitter... 
 #
+#
 # e.g.
 #
-#    @repeat 4 try 
+#   @repeat 4 try
 #
-#        http_get(url)
+#       return s3(aws, "GET", bucket, path)
 #
-#    catch e
-#        @retry if isa(e, UVError) end
-#        @ignore if e.http_code == "203"
-#    end
+#   catch e
+#       @delay_retry if e.code in ["NoSuchBucket", "NoSuchKey"] end
+#   end
+#
+#
+# e.g.
+#
+#   @repeat 4 try 
+#
+#       return http_attempt(request)
+#
+#   catch e
+#
+#       @delay_retry if typeof(e) == UVError end
+#
+#       @delay_retry if http_status(e) < 200 && http_status(e) >= 500 end
+#
+#       @retry if http_status(e) in [301, 302, 307]
+#            request.uri = URI(headers(e)["Location"])
+#       end
+#
+#   end
+#
+#
+# e.g.
+#
+#   @repeat 4 try
+#
+#       r = sqs(aws, Action = "CreateQueue", QueueName = name)
+#       return = XML(r)[:QueueUrl]
+#
+#   catch e
+#
+#       @retry if e.code == "QueueAlreadyExists"
+#           sqs_delete_queue(aws, name)
+#       end
+#
+#       @retry if e.code == "AWS.SimpleQueueService.QueueDeletedRecently"
+#           println("""Waiting 1 minute to re-create Queue "$name"...""")
+#           sleep(60)
+#       end
+#   end
+#
+#
 #
 #------------------------------------------------------------------------------#
 
 
+# Check that "expr" is "try ... catch err ... [finalise ...] end"
+
+function check_try_catch(expr, require_exception_variable::Bool)
+
+    @assert expr.head == :try "" *
+            """Expected "try/catch" expression as argument."""
+
+    @assert expr.args[3].head == :block 
+
+    if require_exception_variable
+        @assert typeof(expr.args[2]) == Symbol "" *
+                """Expected exception vairable name."""
+    else
+        if typeof(expr.args[2]) != Symbol ""
+            @assert expr.args[2] == false
+            expr.args[2] = :err
+        end
+    end
+
+
+    return (try_block, exception, catch_block) = expr.args
+end
+
+
+# Check that "expr" is "@macrocall if ... end".
+
+function check_macro_if(expr)
+
+    @assert expr.head == :macrocall &&
+            length(expr.args) == 2 &&
+            typeof(expr.args[2]) == Expr &&
+            expr.args[2].head == :if "" *
+            """$(expr.args[1]) expects "if" expression as argument."""
+
+    if_expr = expr.args[2]
+
+    @assert length(if_expr.args) == 2 &&
+            if_expr.args[2].head == :block "" *
+            """"else" not allowed in $(expr.args[1]) expression."""
+
+    return if_expr
+end
+
+
+function esc_args!(expr::Expr)
+    for (i, arg) in enumerate(expr.args)
+        expr.args[i] = esc(arg)
+    end
+end
+
+
 macro repeat(max::Integer, try_expr::Expr)
 
-    @assert try_expr.head == :try "" *
-            """@repeat expects "try/catch" expression as 2nd argument."""
-
-    @assert try_expr.args[3].head == :block &&
-            isa(try_expr.args[2], Symbol) "" *
-            """"@repeat n try" expects "catch" block with exception variable."""
-
     # Extract exception variable and catch block from "try" expression...
-    (try_block, exception, catch_block) = try_expr.args
+    (try_block, exception, catch_block) = check_try_catch(try_expr, false)
 
-    # Look for "@ignore/@retry if..." expressions in catch block...
+    # Escape everything except catch block...
+    esc_args!(try_expr)
+    try_expr.args[3] = catch_block
+
+    # Rethrow at end of catch block...
+    push!(catch_block.args, :($exception == nothing || rethrow($exception)))
+
     for (i, expr) in enumerate(catch_block.args)
 
-        if (isa(expr, Expr)
+        # Look for "@ignore/@retry if..." expressions in catch block...
+        if (typeof(expr) == Expr
         &&  expr.head == :macrocall
         &&  expr.args[1] in [Symbol("@retry"),
                              Symbol("@delay_retry"),
                              Symbol("@ignore")])
 
-            # Check for "if" after macro call...
-            @assert length(expr.args) == 2 &&
-                    isa(expr.args[2], Expr) &&
-                    expr.args[2].head == :if "" *
-                    """$(expr.args[1]) expects "if" expression as argument."""
+            handler = string(expr.args[1])
 
-            if_expr = expr.args[2]
-
-            @assert length(if_expr.args) == 2 &&
-                    if_expr.args[2].head == :block "" *
-                    """"else" not allowed in $(expr.args[1]) expression."""
+            if_expr = check_macro_if(expr)
+            (condition, action) = if_expr.args
+            if_expr.args[1] = esc(condition)
 
             # Clear exception variable at end of "@ignore if..." block...
-            if expr.args[1] == Symbol("@ignore")
-                push!(if_expr.args[2].args, :($exception = nothing))
+            if handler == "@ignore"
+                push!(action.args, :($exception = nothing))
             end
+
+            esc_args!(action)
 
             # Loop to try again at end of "@retry if..." block...
-            if expr.args[1] == Symbol("@retry")
-                push!(if_expr.args[2].args, :(continue))
+            if handler == "@retry"
+                push!(action.args, :(i == $max || continue))
             end
 
-            # Loop to try again at end of "@delay_retry if..." block...
-            if expr.args[1] == Symbol("@delay_retry")
-                push!(if_expr.args[2].args, quote
-
-                    # Exponentially increasing delay with random jitter... 
-                    sleep(delay * (0.8 + (0.4 * rand())))
-                    delay *= 10
-                    continue
+            # Add exponentially increasing delay with random jitter,
+            # and loop to try again at end of "@delay_retry if..." block...
+            if handler == "@delay_retry"
+                push!(action.args, quote
+                    if i < $max
+                        sleep(delay * (0.8 + (0.4 * rand())))
+                        delay *= 10
+                        continue
+                    end
                 end)
             end
 
             # Replace @ignore/@retry macro call with modified if expression...
             catch_block.args[i] = :(try $if_expr end)
+        else
+            catch_block.args[i] = esc(expr)
         end
     end
 
     # Don't apply catch rules on last attempt...
-    unshift!(catch_block.args,  :(i < $max || break))
-
-    # Check rethrow flag at end of catch block...
-    push!(catch_block.args,  :($exception == nothing || rethrow($exception)))
-
+#    unshift!(catch_block.args,  :(i < $max || rethrow($(esc(exception)))))
 
     # Build retry expression...
     retry_expr = quote
 
         delay = 0.05
+        result = false
 
         for i in 1:$max
-            $try_expr
+            result = $try_expr
             break
         end
+
+        result
     end
+
+    return retry_expr
 end
 
 
