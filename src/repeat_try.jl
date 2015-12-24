@@ -162,7 +162,7 @@ macro repeat(max::Integer, try_expr::Expr)
 
             # Loop to try again at end of "@retry if..." block...
             if handler == "@retry"
-                push!(action.args, :(i == $max || continue))
+                push!(action.args, :(if i < $max continue end))
             end
 
             # Add exponentially increasing delay with random jitter,
@@ -184,11 +184,8 @@ macro repeat(max::Integer, try_expr::Expr)
         end
     end
 
-    # Don't apply catch rules on last attempt...
-#    unshift!(catch_block.args,  :(i < $max || rethrow($(esc(exception)))))
-
     # Build retry expression...
-    retry_expr = quote
+    quote
 
         delay = 0.05
         result = false
@@ -200,8 +197,6 @@ macro repeat(max::Integer, try_expr::Expr)
 
         result
     end
-
-    return retry_expr
 end
 
 
