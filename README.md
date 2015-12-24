@@ -71,7 +71,7 @@ treated the same as the condition being `false`. The code generated
 by `@protected try` is:
 
 
-```
+```julia
 try
 
     iam(aws, Action = "CreateInstanceProfile",
