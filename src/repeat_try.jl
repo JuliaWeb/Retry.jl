@@ -126,6 +126,12 @@ function esc_args!(expr::Expr)
 end
 
 
+function might_return(expr)
+    isa(expr, Expr) && (expr.head == :return ||
+                        any(might_return, expr.args))
+end
+
+
 macro repeat(max::Integer, try_expr::Expr)
 
     # Extract exception variable and catch block from "try" expression...
@@ -185,17 +191,29 @@ macro repeat(max::Integer, try_expr::Expr)
     end
 
     # Build retry expression...
-    quote
+    # FIXME might_return() test should not be needed when this is fixed:
+    # https://github.com/JuliaLang/julia/issues/11169
+    if might_return(try_expr)
+        quote
+            delay = 0.05
 
-        delay = 0.05
-        result = false
-
-        for i in 1:$max
-            result = $try_expr
-            break
+            for i in 1:$max
+                $try_expr
+                break
+            end
         end
+    else
+        quote
+            delay = 0.05
+            result = false
 
-        result
+            for i in 1:$max
+                result = $try_expr
+                break
+            end
+
+            result
+        end
     end
 end
 
