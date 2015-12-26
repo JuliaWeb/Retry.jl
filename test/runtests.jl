@@ -10,7 +10,6 @@
 using Retry
 using Base.Test
 
-# write your own tests here
 
 type TestException <: Exception
     code

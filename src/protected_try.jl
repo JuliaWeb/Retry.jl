@@ -1,5 +1,5 @@
 #==============================================================================#
-# prtected_try.jl
+# protected_try.jl
 #
 # "@protected try" and @ignore exception handling
 #
