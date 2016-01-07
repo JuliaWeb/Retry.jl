@@ -4,6 +4,8 @@ Macros for simplified exception handling.
 
 `@repeat try`, `@retry`, `@delay_retry`, `@protected try`, `@ignore`.
 
+[![Build Status](https://travis-ci.org/samoconnor/Retry.jl.svg)](https://travis-ci.org/samoconnor/Retry.jl)
+
 ## Exception Handling In Julia
 
 Julia's `try/catch` statement catches all exceptions regardless of type
