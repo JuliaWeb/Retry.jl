@@ -132,7 +132,7 @@ function might_return(expr)
 end
 
 
-macro repeat(max::Integer, try_expr::Expr)
+macro repeat(max, try_expr::Expr)
 
     # Extract exception variable and catch block from "try" expression...
     (try_block, exception, catch_block) = check_try_catch(try_expr, false)
@@ -168,14 +168,14 @@ macro repeat(max::Integer, try_expr::Expr)
 
             # Loop to try again at end of "@retry if..." block...
             if handler == "@retry"
-                push!(action.args, :(if i < $max continue end))
+                push!(action.args, :(if i < $(esc(max)) continue end))
             end
 
             # Add exponentially increasing delay with random jitter,
             # and loop to try again at end of "@delay_retry if..." block...
             if handler == "@delay_retry"
                 push!(action.args, quote
-                    if i < $max
+                    if i < $(esc(max))
                         sleep(delay * (0.8 + (0.4 * rand())))
                         delay *= 10
                         continue
@@ -197,7 +197,7 @@ macro repeat(max::Integer, try_expr::Expr)
         quote
             delay = 0.05
 
-            for i in 1:$max
+            for i in 1:$(esc(max))
                 $try_expr
                 break
             end
@@ -207,7 +207,7 @@ macro repeat(max::Integer, try_expr::Expr)
             delay = 0.05
             result = false
 
-            for i in 1:$max
+            for i in 1:$(esc(max))
                 result = $try_expr
                 break
             end
