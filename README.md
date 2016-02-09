@@ -21,7 +21,7 @@ However, typical systems-programming tasks must deal with with
 multi-layered distributed service stacks, interfaces to external
 systems and resource contention. These problems demand fine-grained
 exception filtering, simple expression of retry loops and confidence
-that unexpected exceptions are no unintentionally caught and ignored.
+that unexpected exceptions are not unintentionally caught and ignored.
 
 Julia's `catch` block can include conditional logic to take appropriate
 action according to error type/code; and to rethrow exceptions that
