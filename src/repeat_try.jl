@@ -157,7 +157,7 @@ macro repeat(max, try_expr::Expr)
 
             if_expr = check_macro_if(expr)
             (condition, action) = if_expr.args
-            if_expr.args[1] = esc(condition)
+            if_expr.args[1] = :(try $(esc(condition)) catch e false end)
 
             # Clear exception variable at end of "@ignore if..." block...
             if handler == "@ignore"
@@ -184,7 +184,7 @@ macro repeat(max, try_expr::Expr)
             end
 
             # Replace @ignore/@retry macro call with modified if expression...
-            catch_block.args[i] = :(try $if_expr end)
+            catch_block.args[i] = if_expr
         else
             catch_block.args[i] = esc(expr)
         end
