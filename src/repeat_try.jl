@@ -88,7 +88,7 @@ function check_try_catch(expr, require_exception_variable::Bool)
         @assert typeof(expr.args[2]) == Symbol "" *
                 """Expected exception vairable name."""
     else
-        if typeof(expr.args[2]) != Symbol ""
+        if typeof(expr.args[2]) != Symbol
             @assert expr.args[2] == false
             expr.args[2] = :err
         end
