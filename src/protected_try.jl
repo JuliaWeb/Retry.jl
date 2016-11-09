@@ -62,12 +62,13 @@ macro protected(try_expr::Expr)
 
             if_expr = check_macro_if(expr)
             (condition, action) = if_expr.args
+            if_expr.args[1] = :(try $condition catch false end)
 
             # Clear exception variable at end of "@ignore if..." block...
             push!(action.args, :($exception = nothing))
             
-            # Replace "@ignore if...", with "try if..."...
-            catch_block.args[i] = :(try $if_expr end)
+            # Replace "@ignore if...", with "if..."...
+            catch_block.args[i] = if_expr
         end
     end
 
