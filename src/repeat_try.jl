@@ -104,12 +104,17 @@ end
 function check_macro_if(expr)
 
     @assert expr.head == :macrocall &&
-            length(expr.args) == 2 &&
-            typeof(expr.args[2]) == Expr &&
-            expr.args[2].head == :if "" *
+            ((length(expr.args) == 2 &&         # Julia <= 0.6
+              typeof(expr.args[2]) == Expr &&
+              expr.args[2].head == :if) ||
+             (length(expr.args) == 3 &&         # Julia >= 0.7
+              typeof(expr.args[2]) == Expr &&
+              typeof(expr.args[3]) == Expr &&
+              expr.args[2].head == :line &&
+              expr.args[3].head == :if)) "" *
             """$(expr.args[1]) expects "if" expression as argument."""
 
-    if_expr = expr.args[2]
+    if_expr = expr.args[end]
 
     @assert length(if_expr.args) == 2 &&
             if_expr.args[2].head == :block "" *
