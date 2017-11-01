@@ -140,6 +140,9 @@ macro repeat(max, try_expr::Expr)
     esc_args!(try_expr)
     try_expr.args[3] = catch_block
 
+    # Check for nothing exception at start of catch block...
+    unshift!(catch_block.args, :($exception == nothing && rethrow($exception)))
+
     # Rethrow at end of catch block...
     push!(catch_block.args, :($exception == nothing || rethrow($exception)))
 
