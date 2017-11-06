@@ -11,7 +11,7 @@ using Retry
 using Base.Test
 
 
-type TestException <: Exception
+mutable struct TestException <: Exception
     code
 end
 
