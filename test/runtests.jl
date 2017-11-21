@@ -29,7 +29,7 @@ end
 @test_throws TestException  @protected try
                                 throw(TestException(7))
                             catch e
-                                @ignore if e.code == "Nothing to see here" end
+                                @ignore if ecode(e) == "Nothing to see here" end
                             end
 
 
@@ -38,7 +38,7 @@ end
 @test   @protected try
             throw(TestException(7))
         catch e
-            @ignore if e.code == 7 end
+            @ignore if ecode(e) == 7 end
         end
 
 
@@ -58,7 +58,7 @@ count = 0
                                 global count += 1
                                 throw(TestException(7))
                             catch e
-                                @retry if e.code == 7 end
+                                @retry if ecode(e) == 7 end
                             end
 @test count == 4
 
@@ -70,7 +70,7 @@ count = 0
                                 global count += 1
                                 throw(TestException(5))
                             catch e
-                                @retry if e.code == 7 end
+                                @retry if ecode(e) == 7 end
                             end
 @test count == 1
 
@@ -82,7 +82,7 @@ count = 0
             global count += 1
             throw(TestException(7))
         catch e
-            @ignore if e.code == 7 end
+            @ignore if ecode(e) == 7 end
         end
 @test count == 1
 
@@ -102,7 +102,7 @@ i = -1
                                 count += 1
                                 throw(TestException(7))
                             catch e
-                                @delay_retry if e.code == 7 end
+                                @delay_retry if ecode(e) == 7 end
                             end
 @test count == 3
 
@@ -118,8 +118,8 @@ count = 0
                                 global count += 1
                                 throw(TestException(count))
                             catch e
-                                @retry if e.code < 3 end
-                                @ignore if e.code == 3 end
+                                @retry if ecode(e) < 3 end
+                                @ignore if ecode(e) == 3 end
                             end
 @test count == 2
 
@@ -131,8 +131,8 @@ count = 0
                                 global count += 1
                                 throw(TestException(count))
                             catch e
-                                @retry if e.code < 3 end
-                                @ignore if e.code == 3 end
+                                @retry if ecode(e) < 3 end
+                                @ignore if ecode(e) == 3 end
                             end
 @test count == 3
 
@@ -144,8 +144,8 @@ count = 0
                                 global count += 1
                                 throw(TestException(count))
                             catch e
-                                @retry if e.code < 3 end
-                                @ignore if e.code == 3 end
+                                @retry if ecode(e) < 3 end
+                                @ignore if ecode(e) == 3 end
                             end
 @test count == 3
 

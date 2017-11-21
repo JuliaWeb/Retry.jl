@@ -126,7 +126,9 @@ end
 
 function esc_args!(expr::Expr)
     for (i, arg) in enumerate(expr.args)
-        expr.args[i] = esc(arg)
+        if isa(arg, Symbol) || arg.head != :line
+            expr.args[i] = esc(arg)
+        end
     end
 end
 
@@ -140,11 +142,8 @@ macro repeat(max, try_expr::Expr)
     esc_args!(try_expr)
     try_expr.args[3] = catch_block
 
-    # Check for nothing exception at start of catch block...
-    unshift!(catch_block.args, :($exception == nothing && rethrow($exception)))
-
-    # Rethrow at end of catch block...
-    push!(catch_block.args, :($exception == nothing || rethrow($exception)))
+    max = esc(max)
+    exception = esc(exception)
 
     for (i, expr) in enumerate(catch_block.args)
 
@@ -159,25 +158,24 @@ macro repeat(max, try_expr::Expr)
 
             if_expr = check_macro_if(expr)
             (condition, action) = if_expr.args
-            if_expr.args[1] = :(try $(esc(condition)) catch e false end)
+            if_expr.args[1] = esc(condition)
+            esc_args!(action)
 
             # Clear exception variable at end of "@ignore if..." block...
             if handler == "@ignore"
-                push!(action.args, :($exception = nothing))
+                push!(action.args, :(ignore = true))
             end
-
-            esc_args!(action)
 
             # Loop to try again at end of "@retry if..." block...
             if handler == "@retry"
-                push!(action.args, :(if i < $(esc(max)) continue end))
+                push!(action.args, :(if i < $max continue end))
             end
 
             # Add exponentially increasing delay with random jitter,
             # and loop to try again at end of "@delay_retry if..." block...
             if handler == "@delay_retry"
                 push!(action.args, quote
-                    if i < $(esc(max))
+                    if i < $max
                         sleep(delay * (0.8 + (0.4 * rand())))
                         delay *= 10
                         continue
@@ -187,17 +185,24 @@ macro repeat(max, try_expr::Expr)
 
             # Replace @ignore/@retry macro call with modified if expression...
             catch_block.args[i] = if_expr
-        else
+        elseif expr.head != :line
             catch_block.args[i] = esc(expr)
         end
     end
+
+    # Check for nothing exception at start of catch block...
+    insert!(catch_block.args, 2, :($exception == nothing && rethrow()))
+    unshift!(catch_block.args, :(ignore = false))
+
+    # Rethrow at end of catch block...
+    push!(catch_block.args, :(ignore || rethrow($exception)))
 
     # Build retry expression...
     quote
         delay = 0.05
         result = false
 
-        for i in 1:$(esc(max))
+        for i in 1:$max
             result = $try_expr
             break
         end
@@ -205,7 +210,6 @@ macro repeat(max, try_expr::Expr)
         result
     end
 end
-
 
 
 #==============================================================================#
