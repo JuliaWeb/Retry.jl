@@ -77,50 +77,36 @@
 
 # Check that "expr" is "try ... catch err ... [finalise ...] end"
 
-function check_try_catch(expr, require_exception_variable::Bool)
-
-    @assert expr.head == :try "" *
-            """Expected "try/catch" expression as argument."""
-
-    @assert expr.args[3].head == :block 
-
+function check_try_catch(expr::Expr, require_exception_variable::Bool)
+    if expr.head !== :try
+        throw(ArgumentError("Expected a `try`/`catch` expression argument"))
+    end
     if require_exception_variable
-        @assert typeof(expr.args[2]) == Symbol "" *
-                """Expected exception vairable name."""
+        expr.args[2] isa Symbol || throw(ArgumentError("Expected exception variable name"))
     else
-        if typeof(expr.args[2]) != Symbol
+        if !isa(expr.args[2], Symbol)
             @assert expr.args[2] == false
             expr.args[2] = :err
         end
     end
-
-
-    return (try_block, exception, catch_block) = expr.args
+    return (expr.args...,)
 end
 
 
 # Check that "expr" is "@macrocall if ... end".
 
-function check_macro_if(expr)
-
-    @assert expr.head == :macrocall &&
-            ((length(expr.args) == 2 &&         # Julia <= 0.6
-              typeof(expr.args[2]) == Expr &&
-              expr.args[2].head == :if) ||
-             (length(expr.args) == 3 &&         # Julia >= 0.7
-              typeof(expr.args[2]) == Expr &&
-              typeof(expr.args[3]) == Expr &&
-              expr.args[2].head == :line &&
-              expr.args[3].head == :if)) "" *
-            """$(expr.args[1]) expects "if" expression as argument."""
-
-    if_expr = expr.args[end]
-
-    @assert length(if_expr.args) == 2 &&
-            if_expr.args[2].head == :block "" *
-            """"else" not allowed in $(expr.args[1]) expression."""
-
-    return if_expr
+function check_macro_if(expr::Expr)
+    if !(expr.head == :macrocall && length(expr.args) == 3)
+        throw(ArgumentError("Expected macro call with a single expression argument"))
+    end
+    (macroname::Symbol, lineinfo::LineNumberNode, ifexpr::Expr) = expr.args
+    if ifexpr.head !== :if
+        throw(ArgumentError("$macroname: expecting an `if` expression"))
+    end
+    if !(length(ifexpr.args) == 2 && ifexpr.args[2].head == :block)
+        throw(ArgumentError("$macroname: `else` expression is not allowed"))
+    end
+    return ifexpr
 end
 
 
