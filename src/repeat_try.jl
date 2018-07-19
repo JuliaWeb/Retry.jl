@@ -112,7 +112,7 @@ end
 
 function esc_args!(expr::Expr)
     for (i, arg) in enumerate(expr.args)
-        if isa(arg, Symbol) || arg.head != :line
+        if isa(arg, Symbol) || !isa(arg, LineNumberNode)
             expr.args[i] = esc(arg)
         end
     end
@@ -171,14 +171,14 @@ macro repeat(max, try_expr::Expr)
 
             # Replace @ignore/@retry macro call with modified if expression...
             catch_block.args[i] = if_expr
-        elseif expr.head != :line
+        elseif !isa(expr, LineNumberNode)
             catch_block.args[i] = esc(expr)
         end
     end
 
     # Check for nothing exception at start of catch block...
     insert!(catch_block.args, 2, :($exception == nothing && rethrow()))
-    unshift!(catch_block.args, :(ignore = false))
+    pushfirst!(catch_block.args, :(ignore = false))
 
     # Rethrow at end of catch block...
     push!(catch_block.args, :(ignore || rethrow($exception)))

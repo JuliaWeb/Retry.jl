@@ -72,7 +72,7 @@ macro protected(try_expr::Expr)
     end
 
     # Check for nothing exception at start of catch block...
-    unshift!(catch_block.args, :($exception == nothing && rethrow($exception)))
+    pushfirst!(catch_block.args, :($exception == nothing && rethrow($exception)))
 
     # Check rethrow flag at end of catch block...
     push!(catch_block.args,  :($exception == nothing || rethrow($exception)))
