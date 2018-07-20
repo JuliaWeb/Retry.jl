@@ -8,7 +8,7 @@
 
 
 using Retry
-using Base.Test
+using Test
 
 
 mutable struct TestException <: Exception
