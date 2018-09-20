@@ -185,8 +185,8 @@ macro repeat(max, try_expr::Expr)
 
     # Build retry expression...
     quote
-        delay = 0.05
-        result = false
+        local delay = 0.05
+        local result = false
 
         for i in 1:$max
             result = $try_expr
