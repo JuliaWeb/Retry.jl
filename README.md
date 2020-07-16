@@ -4,7 +4,7 @@ Macros for simplified exception handling.
 
 `@repeat try`, `@retry`, `@delay_retry`, `@protected try`, `@ignore`.
 
-[![Build Status](https://travis-ci.org/samoconnor/Retry.jl.svg)](https://travis-ci.org/samoconnor/Retry.jl)
+[![Build Status](https://travis-ci.org/JuliaWeb/Retry.jl.svg)](https://travis-ci.org/JuliaWeb/Retry.jl)
 
 ## Exception Handling In Julia
 
