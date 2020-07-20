@@ -4,10 +4,14 @@ os:
   - linux
   - osx
 julia:
-  - 1.0
+  - 1.0  # Long Term Support
+  - 1    # Current Stable
+matrix:
+  allow_failures:
+    - julia: nightly
+branches:
+  only:
+    - master
+    - /release-.*/
 notifications:
   email: false
-# uncomment the following lines to override the default test script
-#script:
-#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("Retry"); Pkg.test("Retry"; coverage=true)'
