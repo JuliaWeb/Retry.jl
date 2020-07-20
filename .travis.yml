@@ -6,6 +6,7 @@ os:
 julia:
   - 1.0  # Long Term Support
   - 1    # Current Stable
+  - nightly
 matrix:
   allow_failures:
     - julia: nightly
