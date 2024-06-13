@@ -164,10 +164,10 @@ catch e
 
     @delay_retry if typeof(e) == UVError end
 
-    @delay_retry if http_status(e) < 200 &&
-                    http_status(e) >= 500 end
+    @delay_retry if e.cause.status < 200 &&
+                    e.cause.status >= 500 end
 
-    @retry if http_status(e) in [301, 302, 307]
+    @retry if e.cause.status in [301, 302, 307]
         request.uri = URI(headers(e)["Location"])
     end
 
